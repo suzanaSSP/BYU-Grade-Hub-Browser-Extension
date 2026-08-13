@@ -1,5 +1,3 @@
-import { useState } from 'react';
-
 export default function App() {
   return (
     <div className="w-80 p-4 bg-slate-900 text-white font-sans rounded-xl shadow-xl border border-slate-800">
@@ -9,9 +7,7 @@ export default function App() {
           v1.0
         </span>
       </div>
-      <p className="text-sm text-slate-400">
-        Tailwind CSS v4 is configured and working!
-      </p>
+      <p className="text-sm text-slate-400">Tailwind CSS v4 is configured and working!</p>
     </div>
   );
 }

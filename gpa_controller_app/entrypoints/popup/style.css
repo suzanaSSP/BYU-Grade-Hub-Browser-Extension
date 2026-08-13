@@ -1,8 +1,8 @@
-@import "tailwindcss";
+@import 'tailwindcss';
 
 /* Custom BYU Design Tokens (Tailwind v4 theme extensions) */
 @theme {
-  --color-byu-navy: #002E5D;
-  --color-byu-royal: #0062B8;
-  --color-byu-tan: #E6D7C3;
+  --color-byu-navy: #002e5d;
+  --color-byu-royal: #0062b8;
+  --color-byu-tan: #e6d7c3;
 }
