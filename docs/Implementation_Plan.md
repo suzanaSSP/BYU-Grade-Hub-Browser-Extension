@@ -15,7 +15,7 @@
 ### Tasks
 
 - [✅ ] Initialize the repository on GitHub with a clear folder structure
-- [ ] Scaffold the extension using **WXT + React + TypeScript**
+- [✅] Scaffold the extension using **WXT + React + TypeScript**
 - [ ] Configure **Tailwind CSS v4** with a custom design system (color tokens, typography, spacing)
 - [ ] Set up **ESLint + Prettier** (run on save via editor integration)
 - [ ] Configure **Vitest** for calculator unit tests
