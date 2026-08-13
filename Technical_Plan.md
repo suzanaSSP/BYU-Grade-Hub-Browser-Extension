@@ -58,7 +58,7 @@ All tools listed below were selected based on **current job-market demand** (202
 
 ### 2.5 Data Access Strategy
 
-#### Canvas (REST API)
+#### Canvas (REST API + Background Auto-Refresh)
 
 BYU uses Instructure's standard Canvas LMS, which exposes a documented REST API.
 
@@ -70,12 +70,15 @@ BYU uses Instructure's standard Canvas LMS, which exposes a documented REST API.
 | `GET /api/v1/courses/:id/assignment_groups` | Assignment categories and weights |
 | `GET /api/v1/users/self/enrollments` | Grades across all courses |
 
-- **Auth method**: The user's active Canvas session cookie is automatically included in fetch requests made from a content script on `*.instructure.com`. No OAuth flow needed.
+- **Auth method**: On the user's first visit to `*.instructure.com`, the content script extracts the Canvas API auth token from the active session and saves it securely in `chrome.storage.local`. Subsequent API calls are made directly from the **background service worker** using this stored token — no Canvas tab needs to be open.
+- **Background refresh**: A `chrome.alarms` timer fires **once daily**, triggering the service worker to call the Canvas REST API and update cached data automatically.
+- **Manual refresh**: The user can also trigger an on-demand Canvas sync from the popup or dashboard at any time.
+- **Token expiry**: If a Canvas API call returns a 401 (unauthorized), the extension clears the stored token and prompts the user to visit Canvas to re-authenticate.
 - **Rate limiting**: Requests are batched and throttled to respect Canvas API rate limits (typically 3,000 requests per hour per user).
 
-#### Learning Suite (DOM Scraping)
+#### Learning Suite (DOM Scraping — Visit-Based)
 
-BYU Learning Suite has no public API. Data will be extracted via a **content script** injected on `learningsuite.byu.edu`.
+BYU Learning Suite has no public API. Data is extracted via a **content script** injected on `learningsuite.byu.edu` only when the user visits those pages. No background scraping is performed.
 
 | Page | Data Extracted |
 |------|---------------|
@@ -83,8 +86,11 @@ BYU Learning Suite has no public API. Data will be extracted via a **content scr
 | `/student/gradebook/whatif` | Grade scale, current projected score |
 | `/student/assignments` | Assignment list with due dates and submission status |
 
-- **Parsing strategy**: Use `document.querySelector` / `querySelectorAll` to parse DOM tables. Data is then serialized to JSON and sent to the extension background service worker via `chrome.runtime.sendMessage`.
-- **Resilience**: Selectors will be version-tagged and abstracted into a separate `scrapers/` module so they can be updated if BYU changes the HTML structure without touching core logic.
+- **Parsing strategy**: Use `document.querySelector` / `querySelectorAll` to parse DOM tables. Data is serialized to JSON and sent to the background service worker via `chrome.runtime.sendMessage`.
+- **Sync trigger**: The content script runs automatically every time the user navigates to any LS gradebook page — no manual action needed beyond visiting the site.
+- **One-click helper**: The dashboard displays an **"Open Learning Suite"** button that opens the LS gradebook directly, so the user never has to remember the URL or dig through bookmarks to trigger a sync.
+- **Last synced indicator**: The dashboard shows "Learning Suite: last synced X minutes ago" so the user always knows how fresh the data is.
+- **Resilience**: Selectors are abstracted into a versioned `scrapers/ls-selectors.ts` file so they can be updated if BYU changes the HTML structure without touching core logic.
 
 ---
 
@@ -112,6 +118,8 @@ Extension
 │   └── ls.ts            → Injected on learningsuite.byu.edu — scrapes DOM
 ├── background/
 │   └── service_worker.ts → Syncs data, manages alarms (notifications), updates badge
+├── ai/                  → [FUTURE] AI chatbot, study tips, study plan generator
+│   └── .gitkeep         → Placeholder — not implemented in v1.0
 └── shared/
     ├── types/           → TypeScript interfaces shared across all entry points
     ├── storage/         → Dexie.js database schema and access layer
@@ -120,14 +128,23 @@ Extension
 
 #### Communication Flow
 
-1. Content scripts detect when the user is on a Canvas or Learning Suite page and extract data.
-2. Content scripts post data to the **background service worker** via `chrome.runtime.sendMessage`.
-3. The service worker stores data in `chrome.storage.local` / IndexedDB and updates the toolbar badge.
-4. The **popup** reads the latest GPA snapshot and assignment count from storage for its mini-summary.
-5. Clicking **"Open Dashboard"** triggers `chrome.tabs.create({ url: 'dashboard.html' })`.
-6. The **dashboard** tab hydrates its full Zustand store from `chrome.storage.local` on load.
-7. TanStack Query manages background refresh and keeps both the popup and dashboard in sync.
-8. All What-If scenario changes made in the dashboard are written back to `chrome.storage.local` and reflected in the popup badge immediately.
+**Canvas (background auto-refresh path):**
+1. On first visit to `*.instructure.com`, `canvas.ts` content script extracts the auth token and sends it to the service worker to store in `chrome.storage.local`.
+2. A `chrome.alarms` timer fires **once daily** — the service worker calls the Canvas REST API directly using the stored token.
+3. Fetched data is saved to `chrome.storage.local` / IndexedDB and the toolbar badge is updated.
+4. The user can also click **"Sync Canvas Now"** in the popup/dashboard to trigger an immediate refresh.
+
+**Learning Suite (visit-based path):**
+1. When the user navigates to any `learningsuite.byu.edu` gradebook page, `ls.ts` content script scrapes the DOM.
+2. Scraped data is posted to the background service worker via `chrome.runtime.sendMessage`.
+3. The service worker stores it in `chrome.storage.local` / IndexedDB and records the LS last-sync timestamp.
+4. If the user hasn't visited LS recently, the dashboard shows a **"Open Learning Suite"** button to make it easy.
+
+**Dashboard & Popup:**
+1. Clicking **"Open Dashboard"** in the popup triggers `chrome.tabs.create({ url: 'dashboard.html' })`.
+2. The dashboard hydrates its Zustand store from `chrome.storage.local` on load.
+3. Both surfaces show per-platform last-sync timestamps: *"Canvas: 5 min ago — Learning Suite: 2 hours ago"*.
+4. What-If scenario changes are written back to `chrome.storage.local` immediately.
 
 #### Personal Use — Load Unpacked
 
@@ -200,11 +217,35 @@ BYU GPA scale:
 
 ---
 
+### 2.11 Future AI Integration (Not in v1.0)
+
+AI features (chatbot, study tips, study plan generator) are planned for a future version. The v1.0 architecture is designed to make this addition seamless:
+
+| Design Decision | Why it Helps AI Later |
+|---|---|
+| All course data stored in a clean, typed schema (Dexie.js) | Can be serialized directly as context for an AI model prompt |
+| Dedicated `ai/` folder already in the project structure | Drop in the AI module without restructuring the project |
+| Dashboard UI built with a sidebar/panel layout | A collapsible AI chat panel can be added without redesigning the page |
+| Shared TypeScript interfaces for `Course`, `Assignment`, `Grade` | AI module can import the same types with no adaptation layer |
+
+**Likely AI stack when the time comes:**
+
+| Tool | Role |
+|------|------|
+| **OpenAI API / Google Gemini API** | LLM backend for the chatbot and study plan generation |
+| **Vercel AI SDK** | Streaming chat responses in React with minimal boilerplate |
+| **Prompt templates** | Pre-built prompts that inject the user's grade data as structured context |
+
+> No AI API keys, network calls to AI services, or AI-related UI are included in v1.0.
+
+---
+
 ## 3. Security Considerations
 
 - No data ever leaves the user's machine — everything is stored in `chrome.storage.local` and IndexedDB.
-- The extension requests **minimum permissions**: `storage`, `alarms`, `notifications`, `tabs` (to open the dashboard tab), and host permissions limited to `*.instructure.com` and `learningsuite.byu.edu`.
+- The extension requests **minimum permissions**: `storage`, `alarms`, `notifications`, `tabs` (to open the dashboard tab), `cookies` (to read LS session state if needed in future), and host permissions limited to `*.instructure.com` and `learningsuite.byu.edu`.
 - Content Security Policy (CSP) is configured strictly in `manifest.json` to prevent XSS.
+- The Canvas auth token is stored in `chrome.storage.local` (never in plain-text logs or exposed in the UI).
 - API tokens (Canvas session tokens) are never logged or exposed in the popup or dashboard.
 
 ---

@@ -8,7 +8,7 @@
 
 ## 1. Overview
 
-BYU Grade Hub is a browser extension for Google Chrome (and optionally Firefox) that connects **BYU Canvas** and **BYU Learning Suite** into a unified, real-time grade dashboard. Its core feature is an interactive **grade calculator** that lets students model hypothetical future scores and see their projected impact on the final course grade and cumulative GPA.
+BYU Grade Hub is a browser extension for Google Chrome that connects **BYU Canvas** and **BYU Learning Suite** into a unified, real-time grade dashboard. Its core feature is an interactive **grade calculator** that lets students model hypothetical future scores and see their projected impact on the final course grade and cumulative GPA.
 
 ---
 
@@ -26,7 +26,7 @@ BYU Grade Hub is a browser extension for Google Chrome (and optionally Firefox) 
 
 | ID   | Requirement |
 |------|-------------|
-| FR-01 | The extension must authenticate with the **BYU Canvas REST API** using the user's existing browser session (OAuth token or cookie) — no separate login required. |
+| FR-01 | The extension must authenticate with the **BYU Canvas REST API** using the user's existing browser session. On the first visit to Canvas, the auth token must be **extracted and stored locally** so the extension can make Canvas API calls in the background without requiring Canvas to be open. |
 | FR-02 | The extension must scrape or use the **BYU Learning Suite** session to pull grade and assignment data, since Learning Suite does not provide a public REST API. |
 | FR-03 | Sessions should be persisted locally in the extension's storage so the user does not need to re-authenticate on every browser restart. |
 | FR-04 | The extension must gracefully handle expired sessions and prompt the user to refresh by visiting the respective platform. |
@@ -110,10 +110,12 @@ BYU Grade Hub is a browser extension for Google Chrome (and optionally Firefox) 
 
 | ID   | Requirement |
 |------|-------------|
-| FR-35 | Grade and assignment data must be **refreshed automatically** when the user visits Canvas or Learning Suite pages. |
-| FR-36 | The user must be able to **manually trigger a sync** from the extension popup. |
-| FR-37 | The last sync time must be displayed in the UI. |
-| FR-38 | Data must be **cached locally** so the extension works offline with the last known data. |
+| FR-35 | **Canvas** grade and assignment data must be **refreshed automatically in the background once daily** using the stored auth token — no Canvas tab needs to be open. |
+| FR-36 | **Learning Suite** data is refreshed automatically whenever the user visits any page on `learningsuite.byu.edu`. No background scraping is performed. |
+| FR-37 | The dashboard must display a **"Open Learning Suite"** quick-link button that navigates directly to the LS gradebook page, making it easy to trigger a sync. |
+| FR-38 | The user must be able to **manually trigger a Canvas sync** from the extension popup or dashboard at any time. |
+| FR-39 | The **last sync time** for each platform must be displayed separately in the UI (e.g., "Canvas: 5 min ago", "Learning Suite: 2 hours ago"). |
+| FR-40 | Data must be **cached locally** so the extension works offline with the last known data for both platforms. |
 
 ---
 
@@ -123,7 +125,7 @@ BYU Grade Hub is a browser extension for Google Chrome (and optionally Firefox) 
 |-------|-------------|
 | NFR-01 | All user data must be stored **locally** in the browser — no external server or cloud database. |
 | NFR-02 | The extension must not interfere with the normal operation of Canvas or Learning Suite pages. |
-| NFR-03 | The extension must be compatible with **Chrome 120+** and optionally Firefox 120+. |
+| NFR-03 | The extension must be compatible with **Chrome 120+**. |
 | NFR-04 | The UI must be **fully responsive** within the constraints of a browser extension popup (min 380px wide). |
 | NFR-05 | All scraping and API calls must comply with BYU's terms of service and usage policies. |
 
@@ -143,7 +145,20 @@ BYU Grade Hub is a browser extension for Google Chrome (and optionally Firefox) 
 
 These features are not in scope for the initial release, but the architecture should leave room for them to be added later without major refactoring.
 
-- **AI-powered study recommendations** — Based on grade trends and upcoming deadlines, surface personalized suggestions (e.g., "You have a midterm in 3 days and your average in this category is 72% — consider reviewing chapters 4–6"). The data layer and component structure should be designed so this feature can be plugged in without restructuring the app.
+### 🤖 AI Tools
+
+- **AI Study Chatbot** — A conversational assistant embedded in the dashboard that the user can talk to directly. Examples of what it should be able to do:
+  - *"I have a midterm in 3 days, can you make me a study plan?"*
+  - *"What topics should I focus on based on my weakest assignment scores?"*
+  - *"How many hours a day do I need to study to get an A in this class?"*
+- **Personalized Study Tips** — Based on grade trends and upcoming deadlines, surface proactive suggestions without the user needing to ask (e.g., *"Your average on Written Homework is 72% — here are some strategies to improve before the next one"*).
+- **Study Plan Generator** — Given a list of upcoming assignments and exams, generate a day-by-day study schedule.
+
+> [!NOTE]
+> To make adding AI easy later, the codebase should be structured so that:
+> - A dedicated `ai/` module can be dropped in without touching existing grade logic
+> - The data already collected (assignments, grades, due dates, weights) is accessible in a clean, structured format that can be passed directly to an AI model as context
+> - The dashboard UI reserves a collapsible panel or sidebar slot where the chatbot can live
 
 ---
 
