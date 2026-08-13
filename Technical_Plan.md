@@ -28,8 +28,7 @@ All tools listed below were selected based on **current job-market demand** (202
 | Tool | Reason |
 |------|--------|
 | **Chrome Extension Manifest V3** | The current and required format for all new Chrome extensions. Mandatory for Chrome Web Store submissions as of 2024. |
-| **CRXJS + Vite** | CRXJS is a Vite plugin that enables Hot Module Replacement (HMR) for Chrome extensions during development, dramatically speeding up the dev loop. Vite is the fastest bundler in the current market and is overwhelmingly preferred over Webpack in 2025. |
-| **WXT (Web Extension Tools)** | Optional scaffolding layer on top of Vite that handles Manifest V3 boilerplate, multiple entry points (popup, content scripts, background), and cross-browser (Chrome + Firefox) builds automatically. |
+| **WXT (Web Extension Tools)** | The primary build framework. Sits on top of Vite and handles Manifest V3 boilerplate, multiple entry points (popup, dashboard, content scripts, background), Hot Module Replacement during development, and cross-browser builds automatically. |
 
 ---
 
@@ -39,8 +38,6 @@ All tools listed below were selected based on **current job-market demand** (202
 |------|---------|--------|
 | **React 18** | 18.x | Most in-demand UI library in the job market. Concurrent rendering, React hooks, and the ecosystem (React Query, Zustand) are perfectly suited to the full-page dashboard tab. |
 | **Tailwind CSS v4** | 4.x | Top CSS framework in job postings. Utility-first approach accelerates building pixel-perfect UI across the full-width dashboard. Zero unused CSS in production. |
-| **Framer Motion** | 11.x | Industry-leading animation library for React. Used for smooth transitions in the grade calculator, scenario switching, and card animations. |
-| **Recharts** | 2.x | Composable chart library built on top of D3 and React. Will be used for grade trend sparklines and GPA trajectory charts. |
 | **Lucide React** | Latest | Modern icon library, the successor to Feather Icons. Used widely in 2025 SaaS products. |
 
 ---
@@ -50,9 +47,8 @@ All tools listed below were selected based on **current job-market demand** (202
 | Tool | Reason |
 |------|--------|
 | **Zustand** | Lightweight, unopinionated state management. Preferred over Redux in 2025 for its minimal boilerplate. Will manage the in-memory state of courses, assignments, and hypothetical scenarios. |
-| **TanStack Query (React Query) v5** | Asynchronous data fetching, caching, and background sync. Handles the refresh-on-focus and stale-while-revalidate patterns perfectly for syncing from Canvas and Learning Suite. |
-| **Chrome Storage API (`chrome.storage.local`)** | Native browser extension storage for persisting user settings, cached grade data, and what-if scenarios. |
-| **IndexedDB via Dexie.js** | For larger structured datasets (full assignment history, all courses). Dexie provides a clean, Promise-based API over IndexedDB. |
+| **Plain React Hooks** (`useEffect`, `useState`, `useCallback`) | Used for all data loading and syncing from `chrome.storage.local`. Straightforward and sufficient — no external data-fetching library needed since the data source is local storage, not a remote server. |
+| **Chrome Storage API (`chrome.storage.local`)** | All persistent data storage — user settings, cached grade data, auth tokens, and what-if scenarios. Simple, built-in, and sufficient for a single-user personal extension. |
 
 ---
 
@@ -122,7 +118,7 @@ Extension
 │   └── .gitkeep         → Placeholder — not implemented in v1.0
 └── shared/
     ├── types/           → TypeScript interfaces shared across all entry points
-    ├── storage/         → Dexie.js database schema and access layer
+    ├── storage/         → chrome.storage.local access helpers
     └── calculators/     → Pure functions: grade computation, GPA calculation, "what-if" engine
 ```
 
@@ -131,18 +127,18 @@ Extension
 **Canvas (background auto-refresh path):**
 1. On first visit to `*.instructure.com`, `canvas.ts` content script extracts the auth token and sends it to the service worker to store in `chrome.storage.local`.
 2. A `chrome.alarms` timer fires **once daily** — the service worker calls the Canvas REST API directly using the stored token.
-3. Fetched data is saved to `chrome.storage.local` / IndexedDB and the toolbar badge is updated.
+3. Fetched data is saved to `chrome.storage.local` and the toolbar badge is updated.
 4. The user can also click **"Sync Canvas Now"** in the popup/dashboard to trigger an immediate refresh.
 
 **Learning Suite (visit-based path):**
 1. When the user navigates to any `learningsuite.byu.edu` gradebook page, `ls.ts` content script scrapes the DOM.
 2. Scraped data is posted to the background service worker via `chrome.runtime.sendMessage`.
-3. The service worker stores it in `chrome.storage.local` / IndexedDB and records the LS last-sync timestamp.
+3. The service worker stores it in `chrome.storage.local` and records the LS last-sync timestamp.
 4. If the user hasn't visited LS recently, the dashboard shows a **"Open Learning Suite"** button to make it easy.
 
 **Dashboard & Popup:**
 1. Clicking **"Open Dashboard"** in the popup triggers `chrome.tabs.create({ url: 'dashboard.html' })`.
-2. The dashboard hydrates its Zustand store from `chrome.storage.local` on load.
+2. The dashboard reads from `chrome.storage.local` on load using plain `useEffect` hooks and populates the Zustand store.
 3. Both surfaces show per-platform last-sync timestamps: *"Canvas: 5 min ago — Learning Suite: 2 hours ago"*.
 4. What-If scenario changes are written back to `chrome.storage.local` immediately.
 
@@ -185,12 +181,13 @@ BYU GPA scale:
 
 ### 2.8 Testing Stack
 
+Testing is focused on the **grade calculation engine only** — the pure TypeScript functions that compute grades, GPA, and what-if projections. These are the highest-risk logic in the app and the most important to verify are correct.
+
 | Tool | Use |
 |------|-----|
-| **Vitest** | Unit and integration tests. Co-located with Vite, faster than Jest. Used for all calculator pure functions. |
-| **React Testing Library** | Component tests for the popup and dashboard UI. |
-| **Playwright** | End-to-end tests (loading the extension in a real Chromium browser, opening the dashboard tab, and verifying grade display and calculator behaviour). |
-| **MSW (Mock Service Worker)** | Intercepts Canvas API calls in tests without hitting real endpoints. |
+| **Vitest** | Unit tests for all calculator pure functions (`computeCourseGrade`, `computeGPA`, `computeProjectedGrade`, `computePointsNeeded`). Fast, co-located with Vite, zero extra config. |
+
+UI components, content scripts, and the extension popup/dashboard are verified manually by loading the extension in Chrome during development.
 
 ---
 
@@ -198,10 +195,8 @@ BYU GPA scale:
 
 | Tool | Use |
 |------|-----|
-| **ESLint + Prettier** | Code linting and formatting. Configured with TypeScript and React rules. |
-| **Husky + lint-staged** | Pre-commit hooks to enforce linting before every commit. |
-| **GitHub Actions** | CI pipeline: runs tests, type checks, and builds the extension on every push. |
-| **GitHub Releases** | Distributes the `.crx` / `.zip` artifact for Chrome Web Store or manual installation. |
+| **ESLint + Prettier** | Code linting and formatting. Configured with TypeScript and React rules. Run manually or on save via editor integration. |
+| **GitHub Releases** | Distributes the `.zip` artifact for manual installation via Load Unpacked. |
 | **Sentry (optional, v2)** | Error monitoring if the extension is published publicly. |
 
 ---
@@ -210,7 +205,6 @@ BYU GPA scale:
 
 | Tool | Use |
 |------|-----|
-| **Figma** | UI/UX design mockups and design system tokens before implementation. |
 | **CSS Custom Properties** | Theme tokens (colors, spacing, typography) defined once and used across Tailwind configuration. |
 | **Google Fonts — Inter** | Clean, modern sans-serif typeface widely used in 2025 SaaS products. |
 | **Dark mode** | Supported via Tailwind's `dark:` variant and a user-controlled toggle stored in `chrome.storage.sync`. |
@@ -223,7 +217,7 @@ AI features (chatbot, study tips, study plan generator) are planned for a future
 
 | Design Decision | Why it Helps AI Later |
 |---|---|
-| All course data stored in a clean, typed schema (Dexie.js) | Can be serialized directly as context for an AI model prompt |
+| All course data stored in a clean, typed schema in `chrome.storage.local` | Can be serialized directly as context for an AI model prompt |
 | Dedicated `ai/` folder already in the project structure | Drop in the AI module without restructuring the project |
 | Dashboard UI built with a sidebar/panel layout | A collapsible AI chat panel can be added without redesigning the page |
 | Shared TypeScript interfaces for `Course`, `Assignment`, `Grade` | AI module can import the same types with no adaptation layer |
@@ -238,11 +232,18 @@ AI features (chatbot, study tips, study plan generator) are planned for a future
 
 > No AI API keys, network calls to AI services, or AI-related UI are included in v1.0.
 
+**Visual enhancements planned for later versions:**
+
+| Tool | Role |
+|------|------|
+| **Recharts** | Grade trend sparklines and GPA trajectory charts (deferred from v1.0) |
+| **Framer Motion** | Smooth animations and transitions throughout the dashboard (deferred from v1.0) |
+
 ---
 
 ## 3. Security Considerations
 
-- No data ever leaves the user's machine — everything is stored in `chrome.storage.local` and IndexedDB.
+- No data ever leaves the user's machine — everything is stored in `chrome.storage.local`.
 - The extension requests **minimum permissions**: `storage`, `alarms`, `notifications`, `tabs` (to open the dashboard tab), `cookies` (to read LS session state if needed in future), and host permissions limited to `*.instructure.com` and `learningsuite.byu.edu`.
 - Content Security Policy (CSP) is configured strictly in `manifest.json` to prevent XSS.
 - The Canvas auth token is stored in `chrome.storage.local` (never in plain-text logs or exposed in the UI).
