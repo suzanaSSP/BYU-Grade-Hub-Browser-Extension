@@ -1,11 +1,18 @@
 # Implementation Plan — BYU Grade Hub Browser Extension
 
-> **Version**: 1.0 — Draft  
-> **Date**: July 2026  
+> **Version**: 1.1 — Draft  
+> **Date**: October 2026  
 > **Author**: Suzana Pinheiro  
-> **Total Estimated Duration**: 6-8 weeks (according to Claude)
+> **Estimated Duration**: v1.0 ≈ 4 weeks · v1.1 ≈ 3–4 weeks
+
+The plan is split into two releases (see `Requirements.md`):
+
+- **v1.0 — Course-level GPA planner** (Phases 1–6): current grade per course + a projected-grade dropdown → semester and cumulative GPA.
+- **v1.1 — Assignment-level What-If** (Phases 7–8): an assignment tab per course with hypothetical score inputs that feed the projected course grade.
 
 ---
+
+# v1.0 — Course-Level GPA Planner
 
 ## Phase 1 — Foundation & Setup
 
@@ -17,16 +24,16 @@
 - [✅] Initialize the repository on GitHub with a clear folder structure
 - [✅] Scaffold the extension using **WXT + React + TypeScript**
 - [✅] Configure **Tailwind CSS v4** with a custom design system (color tokens, typography, spacing)
-- [ ] Set up **ESLint + Prettier** (run on save via editor integration)
+- [✅] Set up **ESLint + Prettier** (run on save via editor integration)
 - [ ] Configure **Vitest** for calculator unit tests
-- [ ] Create the `manifest.json` with minimum required permissions:
-  - `storage`, `alarms`, `notifications`, `tabs`
+- [ ] Configure the manifest (via `wxt.config.ts`) with minimum required permissions:
+  - `storage`
   - Host permissions: `*://*.instructure.com/*`, `*://learningsuite.byu.edu/*`
-- [ ] Define all shared **TypeScript interfaces** (`Course`, `Assignment`, `AssignmentGroup`, `Grade`, `Scenario`)
-- [ ] Stub out all entry points: popup, dashboard, options, canvas content script, LS content script
+- [ ] Define the v1.0 **TypeScript interfaces** (`Course`, `LetterGrade`, `CourseSettings`, `GpaInputs`) — leave room for v1.1 types (`Assignment`, `AssignmentGroup`, `Hypotheticals`) without defining them yet
+- [ ] Stub out entry points: popup, Canvas content script, LS content script, background
 
 ### Deliverable
-A working "Hello World" extension that loads in Chrome with a blank popup and dashboard tab.
+A working "Hello World" extension that loads in Chrome with a blank popup.
 
 ### Success Criteria
 - Extension loads without errors in Chrome
@@ -34,226 +41,152 @@ A working "Hello World" extension that loads in Chrome with a blank popup and da
 
 ---
 
-## Phase 2 — Canvas Integration
+## Phase 2 — GPA Engine
 
-**Duration**: 2 weeks  
-**Goal**: Fetch and display real course and assignment data from Canvas.
+**Duration**: 3–4 days  
+**Goal**: Pure, tested functions for all v1.0 math. Done first so the UI and data phases build on known-correct logic.
 
-### Week 1 — API Integration
-
-- [ ] Build the `canvas.ts` content script that detects when the user is on `*.instructure.com`
-- [ ] Implement authenticated API calls using the user's session to extract and store the auth token:
-  - `GET /api/v1/courses` — enrolled courses
-  - `GET /api/v1/courses/:id/assignment_groups` — categories + weights
-  - `GET /api/v1/courses/:id/assignments` — all assignments with due dates and scores
-  - `GET /api/v1/users/self/enrollments` — current grades across courses
-- [ ] Store the fetched data in `chrome.storage.local`
-- [ ] Set up the background service worker to receive messages from the content script
-- [ ] Set up `chrome.alarms` for the daily background Canvas refresh
-- [ ] Write Vitest unit tests for the token extraction and storage logic
-
-### Week 2 — Popup Course Display
-
-- [ ] Build the **Course List** component in the popup (React):
-  - Shows all Canvas courses with current grade and letter grade
-  - Platform badge labeled "Canvas"
-  - Click to expand and see assignment groups
-- [ ] Build the **Assignment Group** component:
-  - Shows category name, weight percentage, and assignments within
-  - Each assignment row: title, due date, score/max score, % of grade
-  - Visual state for: submitted, unsubmitted, dropped
-- [ ] Implement a **manual "Sync Canvas Now" button** with last-sync timestamp
-
-### Deliverable
-Extension popup shows all Canvas courses, assignment categories, weights, and individual assignment grades.
-
-### Success Criteria
-- All Canvas assignments visible in popup with correct scores and weights
-- Data persists after closing and reopening the popup
-- Manual sync refreshes data correctly
-
----
-
-## Phase 3 — Learning Suite Integration
-
-**Duration**: 2.5 weeks  
-**Goal**: Scrape Learning Suite grade data and merge it with Canvas data.
-
-### Week 1 — DOM Scraping Engine
-
-- [ ] Build the `ls.ts` content script injected on `learningsuite.byu.edu`
-- [ ] Implement scrapers for the following pages:
-  - `/student/gradebook` → assignment categories, weights, scores, current grade
-  - `/student/assignments` → assignment list with due dates and submission status
-  - `/student/gradebook/whatif` → grade scale for the course
-- [ ] Abstract all CSS selectors into a versioned `scrapers/ls-selectors.ts` file
-- [ ] Parse and normalize scraped data into the shared TypeScript `Course`/`Assignment` interfaces
-- [ ] Post data to background service worker and store in `chrome.storage.local`
-
-### Week 2 — Unified Course View
-
-- [ ] Add Learning Suite courses to the unified Course List in the popup
-  - Platform badge labeled "Learning Suite"
-- [ ] Build the **Course Linking UI** in the options page: let the user link a Canvas and Learning Suite course that represent the same class
-- [ ] If courses are linked, merge their data and display as a single entry
-- [ ] Implement **hide/show course** toggle (stored in `chrome.storage.local`)
-- [ ] Implement semester/term filter
-
-### Week 3 (partial) — Resilience & Error Handling
-
-- [ ] Add scraper version detection: if the LS DOM structure changes, log a warning and display a "Data may be outdated" notice
-- [ ] Add graceful handling for when the user is not logged in to either platform
-- [ ] Add retry logic for failed scrapes/API calls
-
-### Deliverable
-Extension popup shows unified course list from both Canvas and Learning Suite.
-
-### Success Criteria
-- Learning Suite grades visible alongside Canvas grades
-- Linked courses show as a single merged entry
-- Extension does not crash or break LS/Canvas pages
-
----
-
-## Phase 4 — Grade Calculator & GPA Engine
-
-**Duration**: 3 weeks  
-**Goal**: Implement the core "What If" calculator, the GPA tracker, and the "Points Needed" calculator.
-
-### Week 1 — Core Calculation Engine
+### Tasks
 
 - [ ] Implement pure TypeScript functions in `shared/calculators/`:
-  - `computeWeightedGrade(assignments, groups)` → final percentage for a course
-  - `computeLetterGrade(percentage, gradeScale)` → letter grade
-  - `computeGPA(courses, creditHours)` → semester GPA (4.0 scale)
-  - `computeCumulativeGPA(semesterGPA, semesterCredits, historicGPA, historicCredits)` → overall GPA
-  - `computePointsNeeded(target, current, remaining, weights)` → minimum score per remaining assignment
-- [ ] Write comprehensive **unit tests** for all calculator functions with edge cases (dropped assignments, extra credit, incomplete categories)
-
-### Week 2 — What If Calculator UI
-
-- [ ] Add **editable score fields** to every unsubmitted assignment row in the popup
-  - Input shows placeholder "Enter score" in a visually distinct style (e.g., blue outline, pencil icon)
-  - Accepts raw points or percentage
-- [ ] Wire inputs to Zustand state for the "hypothetical" scenario
-- [ ] Grade display updates **in real time** as the user types (debounced at 300ms)
-- [ ] The projected final grade and letter grade update live at the top of the course view
-- [ ] Add a **Reset All** button that clears all hypothetical inputs back to actual scores
-
-### Week 3 — Scenario Saving, GPA Tracker & Points Needed
-
-- [ ] **Scenario saving**:
-  - "Save Scenario" button stores the current set of hypothetical scores under a named scenario
-  - Scenarios stored in `chrome.storage.local`
-  - User can switch between saved scenarios from a dropdown (e.g., "Optimistic", "Realistic", "Passing")
-  - "Delete Scenario" button
-- [ ] **Points Needed calculator**:
-  - Input field for a target final grade (e.g., "I want an A-")
-  - Extension calculates and displays the required average score on remaining assignments
-  - If the goal is mathematically impossible, display a friendly warning
-- [ ] **GPA Tracker panel**:
-  - Section in the popup showing all courses with their current/projected grade
-  - Credit hours editable per course (stored in `chrome.storage.local`)
-  - Semester GPA displayed, updating as What-If scores change
-  - Historical GPA input fields: prior cumulative GPA and total credits earned
-  - Overall (cumulative) GPA displayed
-
-### Deliverable
-Fully functional "What If" grade calculator with real-time updates, scenario saving, GPA tracking, and "points needed" tool.
+  - `percentToLetter(percent, scale = BYU_DEFAULT_SCALE)` → letter grade
+  - `resolveProjectedLetter(course, settings)` → course-level projection, else current letter, else `null` (v1.1 adds the assignment-level step in the middle)
+  - `computeSemesterGPA(courses, settings)` → GPA over visible courses that have a resolved letter
+  - `computeCumulativeGPA(semesterGPA, semesterCredits, priorGPA, priorCredits)` → blended GPA
+- [ ] Unit tests: rounding, courses with no grade (excluded), hidden courses (excluded), zero credits, no prior GPA entered, E grades
 
 ### Success Criteria
-- Changing a hypothetical score updates the course grade and GPA in under 300ms
-- Scenarios save and reload correctly
-- "Points needed" calculation is mathematically accurate
-- Calculator works on both Canvas and Learning Suite courses
+- All calculator tests pass
+- GPA results match a hand-calculated example with 4–5 real courses
 
 ---
 
-## Phase 5 — Unified Dashboard & UI Polish
-
-**Duration**: 2.5 weeks  
-**Goal**: Elevate the UI to a premium, production-quality experience.
-
-### Week 1 — Dashboard View
-
-- [ ] Build a **Dashboard home screen** showing all courses in a card grid:
-  - Course name, platform badge, current grade (large), letter grade
-  - Upcoming assignments count (assignments due in next 7 days)
-  - Quick GPA summary at the top
-
-### Week 2 — Polish & Micro-interactions
-
-- [ ] Implement **dark mode** toggle (persisted in `chrome.storage.sync` for cross-device sync)
-- [ ] Add hover states, focus styles, and transition animations throughout the popup
-- [ ] Build the **Options page** with:
-  - Notification settings (on/off, time thresholds per course)
-  - Course visibility toggles
-  - Historical GPA input
-  - Manual course linking
-- [ ] Implement **badge on extension icon** showing count of assignments due in 48 hours
-- [ ] Implement browser notifications via the Alarms API
-
-### Week 3 (partial) — Accessibility & Responsiveness
-
-- [ ] Ensure all interactive elements are keyboard-navigable (Tab order, focus rings)
-- [ ] Add ARIA labels to all chart and data elements
-- [ ] Test and fix layout at various popup widths (380px to 600px)
-
-### Deliverable
-A polished, premium-looking extension that feels production-ready.
-
-### Success Criteria
-- Dark mode works consistently
-- Extension icon badge updates correctly
-
----
-
-## Phase 6 — Testing & QA
+## Phase 3 — Canvas Current Grades
 
 **Duration**: 1 week  
-**Goal**: Verify calculator correctness and manually test the full extension on real BYU data.
+**Goal**: Pull current-semester Canvas courses and their current grade.
 
-### Calculator Unit Tests (Vitest)
+### Tasks
 
-- [ ] Achieve **>90% coverage** on all calculator functions
-- [ ] Cover edge cases: dropped assignments, extra credit, incomplete categories, impossible grade targets
+- [ ] **Auth spike first (1 day)**: confirm how API calls authenticate with the user's session. Same-origin `fetch('/api/v1/...')` from the Canvas content script is the known-working baseline; test whether calls from the popup/background with host permissions also carry the session. Record the result in `Technical_Plan.md`.
+- [ ] Fetch courses + scores in one call: `GET /api/v1/courses?enrollment_state=active&include[]=total_scores&include[]=term`
+- [ ] Filter to the current term (FR-41) and normalize into `Course` (`id`, `name`, `platform: 'canvas'`, `currentPercent`, `currentLetter`)
+- [ ] Store in `chrome.storage.local` with a `lastSyncedAt` timestamp
+- [ ] Refresh when the popup opens if data is stale, plus a **"Sync Canvas Now"** button
+- [ ] Handle logged-out / 401: show "Visit Canvas to reconnect"
 
-### Manual QA in Chrome
-
-- [ ] Test on real BYU Canvas and Learning Suite with a real student account
-- [ ] Test across multiple enrolled courses with different grade structures
-- [ ] Test the What-If calculator: changing scores updates grade and GPA correctly
-- [ ] Test scenario save/load works correctly
-- [ ] Test notification timing and badge updates
-- [ ] Test offline behavior (dashboard shows cached data when network is unavailable)
-- [ ] Test daily Canvas background refresh fires and updates data
-
-### Deliverable
-Extension verified as correct and stable on real BYU data.
+### Success Criteria
+- All current Canvas courses appear with the same grade Canvas shows
+- Data persists after closing and reopening the popup
 
 ---
 
+## Phase 4 — Learning Suite Current Grades
+
+**Duration**: 1 week  
+**Goal**: Scrape the LS course list and current grade per course.
+
+### Tasks
+
+- [ ] Build the `ls.ts` content script on `learningsuite.byu.edu`
+- [ ] Scrape the course list and the current/final grade for each course (gradebook page only)
+- [ ] Put all CSS selectors in `scrapers/ls-selectors.ts`
+- [ ] Normalize into `Course` (`platform: 'learning-suite'`) and send to the background to store, with an LS `lastSyncedAt`
+- [ ] If expected elements are missing, keep the old data and show "Learning Suite data may be outdated"
+
+### Success Criteria
+- LS courses appear alongside Canvas courses with correct current grades
+- The extension never breaks or slows down LS pages
+
+---
+
+## Phase 5 — GPA Planner UI (Popup)
+
+**Duration**: 1 week  
+**Goal**: The main and only v1.0 screen.
+
+### Tasks
+
+- [ ] **GPA header**: semester GPA and cumulative GPA, with a "projected" label when any projection is set
+- [ ] **Course rows**: name, platform badge, current grade (letter + %), credit hours input, projected grade dropdown (`—`, A … E)
+- [ ] Projected values styled distinctly (color + pencil icon)
+- [ ] **Reset projections** button
+- [ ] **Hide course** action, plus a "Show hidden courses" toggle
+- [ ] **Prior GPA** inputs (previous cumulative GPA + credits earned), in a collapsible section
+- [ ] Footer: per-platform last sync time, "Sync Canvas Now", "Open Learning Suite"
+- [ ] Persist credit hours, projections, hidden courses, and prior GPA in `chrome.storage.local`, keyed by course ID so re-syncs don't wipe them
+
+### Success Criteria
+- Changing a projection or credit hours updates the GPA instantly
+- Settings survive popup close, browser restart, and re-sync
+
+---
+
+## Phase 6 — v1.0 QA
+
+**Duration**: 2–3 days
+
+- [ ] Test on a real BYU account with both Canvas and LS courses
+- [ ] Verify the GPA against a hand calculation
+- [ ] Test offline: popup shows cached data
+- [ ] Test logged-out states for both platforms
+
+### Deliverable
+v1.0 installed and used for real.
+
+---
+
+# v1.1 — Assignment-Level What-If
+
+## Phase 7 — Assignment Data
+
+**Duration**: 1.5–2 weeks  
+**Goal**: Fetch assignment-level data for each course.
+
+### Tasks
+
+- [ ] Add v1.1 types: `Assignment`, `AssignmentGroup`, `Hypotheticals` (extend storage; existing v1.0 keys stay unchanged)
+- [ ] Canvas: `GET /api/v1/courses/:id/assignment_groups?include[]=assignments&include[]=submission` — categories, weights, assignments, and scores in one call per course
+- [ ] Canvas: read the course grading standard (grade scale) when present
+- [ ] LS: extend the scraper to the full gradebook (categories, weights, assignments, scores) and the grade scale
+- [ ] Fetch assignment data **lazily** when a course's tab is opened, cached afterward
+
+### Success Criteria
+- Assignment lists and weights match what Canvas/LS show
+
+---
+
+## Phase 8 — Assignment What-If UI & Engine
+
+**Duration**: 1.5–2 weeks
+
+### Tasks
+
+- [ ] Engine: `computeWeightedGrade(groups, assignments, hypotheticals)` handling weighted vs. unweighted courses, dropped assignments, extra credit, and ungraded assignments
+- [ ] Validate the engine against the actual grade Canvas/LS shows (with no hypotheticals, the result should match the current grade)
+- [ ] Extend `resolveProjectedLetter`: course-level projection → assignment-level projection → current grade (FR-48)
+- [ ] Assignment tab: clicking a course row opens it; assignments grouped by category with weights
+- [ ] Editable score field on every assignment; hypothetical values styled like v1.0 projections
+- [ ] Projected course grade shown at the top of the tab; GPA planner updates live
+- [ ] "Reset this course" button
+- [ ] If a course-level projection is set, show a notice in the tab with a "Clear course override" action
+- [ ] Unit tests for all weighted-grade edge cases
+
+### Success Criteria
+- With no hypotheticals, the computed grade matches the platform's grade for every course
+- Entering a hypothetical score updates the course grade and GPA instantly
+
+---
 
 ## Risk Register
 
 | Risk | Likelihood | Impact | Mitigation |
 |------|-----------|--------|------------|
-| BYU Learning Suite changes its DOM structure | Medium | High | Abstract all selectors into a versioned module; monitor for changes |
-| Canvas API rate limiting | Low | Medium | Batch requests, cache aggressively, respect retry-after headers |
-| BYU changes authentication/SSO flow | Low | High | Rely on session token stored in chrome.storage.local; prompt user to re-login |
-| Scope creep (adding features before core is stable) | High | Medium | Strictly follow phase gates; defer all v2 features to a backlog |
-
----
-
-## Backlog (v2 Features)
-
-- AI-powered study recommendations based on grade trends
-- Integration with VitalSource for course materials
-- Export grades to CSV/PDF
-- Shared "what-if" links (read-only shareable URL)
-- Firefox full support
-- Mobile companion app (React Native)
-- Push notifications via a companion web service
+| Canvas session can't be used outside a Canvas tab | Medium | Medium | Auth spike at the start of Phase 3; fall back to syncing from the Canvas content script when the user visits Canvas (same model as LS) |
+| BYU Learning Suite changes its DOM structure | Medium | High | Selectors isolated in one module; v1.0 only scrapes a small amount of data |
+| Weighted-grade math doesn't match the platform (v1.1) | Medium | Medium | Validate against the platform's own current grade before trusting projections |
+| BYU changes authentication/SSO flow | Low | High | Prompt the user to re-login |
+| Scope creep | High | Medium | Ship v1.0 before starting v1.1; everything else stays in "Later" in `Requirements.md` |
 
 ---
 
