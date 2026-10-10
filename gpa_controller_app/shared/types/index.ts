@@ -21,14 +21,26 @@ export interface CourseSettings {
   hidden: boolean;
 }
 
-export interface PriorGpa {
-  gpa: number;
-  credits: number;
-}
+/**
+ * Grades from earlier semesters. Grade points (from the transcript) are exact;
+ * a GPA is the fallback, but it's rounded, so grade points rebuilt from it are approximate.
+ * `credits` are GPA hours: the credit hours already completed that count toward the GPA.
+ */
+export type PriorGpa =
+  | { kind: 'grade-points'; gradePoints: number; credits: number }
+  | { kind: 'gpa'; gpa: number; credits: number };
 
 /** Everything the GPA engine needs to compute semester and cumulative GPA. */
 export interface GpaInputs {
   courses: Course[];
   settings: Record<string, CourseSettings>;
   priorGpa: PriorGpa | null;
+}
+
+export type SyncError = 'logged-out' | 'failed';
+
+/** Per-platform sync state. A failed sync keeps the last synced courses. */
+export interface SyncStatus {
+  lastSyncedAt: number | null;
+  error: SyncError | null;
 }

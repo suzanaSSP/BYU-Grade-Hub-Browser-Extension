@@ -52,7 +52,7 @@ A working "Hello World" extension that loads in Chrome with a blank popup.
   - `percentToLetter(percent, scale = BYU_DEFAULT_SCALE)` → letter grade
   - `resolveProjectedLetter(course, settings)` → course-level projection, else current letter, else `null` (v1.1 adds the assignment-level step in the middle)
   - `computeSemesterGPA(courses, settings)` → GPA over visible courses that have a resolved letter
-  - `computeCumulativeGPA(semesterGPA, semesterCredits, priorGPA, priorCredits)` → blended GPA
+  - `computeCumulativeGPA(semester, prior)` → (prior grade points + semester grade points) ÷ (prior credits + semester credits); prior grades are entered as grade points, or a GPA as a fallback
 - [✅] Unit tests: rounding, courses with no grade (excluded), hidden courses (excluded), zero credits, no prior GPA entered, E grades
 
 ### Success Criteria
@@ -68,12 +68,12 @@ A working "Hello World" extension that loads in Chrome with a blank popup.
 
 ### Tasks
 
-- [ ] **Auth spike first (1 day)**: confirm how API calls authenticate with the user's session. Same-origin `fetch('/api/v1/...')` from the Canvas content script is the known-working baseline; test whether calls from the popup/background with host permissions also carry the session. Record the result in `Technical_Plan.md`.
-- [ ] Fetch courses + scores in one call: `GET /api/v1/courses?enrollment_state=active&include[]=total_scores&include[]=term`
-- [ ] Filter to the current term (FR-41) and normalize into `Course` (`id`, `name`, `platform: 'canvas'`, `currentPercent`, `currentLetter`)
-- [ ] Store in `chrome.storage.local` with a `lastSyncedAt` timestamp
-- [ ] Refresh when the popup opens if data is stale, plus a **"Sync Canvas Now"** button
-- [ ] Handle logged-out / 401: show "Visit Canvas to reconnect"
+- [✅] **Auth spike first (1 day)**: confirm how API calls authenticate with the user's session. Same-origin `fetch('/api/v1/...')` from the Canvas content script is the known-working baseline; test whether calls from the popup/background with host permissions also carry the session. Record the result in `Technical_Plan.md`.
+- [✅] Fetch courses + scores in one call: `GET /api/v1/courses?enrollment_state=active&include[]=total_scores&include[]=term`
+- [✅] Filter to the current term (FR-41) and normalize into `Course` (`id`, `name`, `platform: 'canvas'`, `currentPercent`, `currentLetter`)
+- [✅] Store in `chrome.storage.local` with a `lastSyncedAt` timestamp
+- [✅] Refresh when the popup opens if data is stale, plus a **"Sync Canvas Now"** button
+- [✅] Handle logged-out / 401: show "Visit Canvas to reconnect"
 
 ### Success Criteria
 - All current Canvas courses appear with the same grade Canvas shows
@@ -112,7 +112,7 @@ A working "Hello World" extension that loads in Chrome with a blank popup.
 - [ ] Projected values styled distinctly (color + pencil icon)
 - [ ] **Reset projections** button
 - [ ] **Hide course** action, plus a "Show hidden courses" toggle
-- [ ] **Prior GPA** inputs (previous cumulative GPA + credits earned), in a collapsible section
+- [ ] **Prior grades** inputs (grade points + GPA hours already completed, with a previous-GPA fallback), in a collapsible section
 - [ ] Footer: per-platform last sync time, "Sync Canvas Now", "Open Learning Suite"
 - [ ] Persist credit hours, projections, hidden courses, and prior GPA in `chrome.storage.local`, keyed by course ID so re-syncs don't wipe them
 

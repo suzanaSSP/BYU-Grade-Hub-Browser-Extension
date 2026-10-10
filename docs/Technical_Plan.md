@@ -78,7 +78,7 @@ interface CourseSettings {             // user input
 // courses:canvas, courses:learning-suite → Course[]
 // sync:canvas, sync:learning-suite      → { lastSyncedAt: number }
 // courseSettings                        → Record<courseKey, CourseSettings>
-// priorGpa                              → { gpa: number; credits: number } | null
+// priorGpa                              → { kind: 'grade-points'; gradePoints; credits } | { kind: 'gpa'; gpa; credits } | null
 
 // v1.1 adds (no changes to the keys above):
 // assignments:<courseKey>               → { groups: AssignmentGroup[]; assignments: Assignment[]; gradeScale? }
@@ -99,7 +99,9 @@ BYU uses Instructure's standard Canvas LMS, which exposes a documented REST API.
 | v1.1 | `GET /api/v1/courses/:id/assignment_groups?include[]=assignments&include[]=submission` | Categories, weights, assignments, and the user's scores |
 | v1.1 | `GET /api/v1/courses/:id?include[]=grading_scheme` *(verify during Phase 7)* | Course grade scale |
 
-- **Auth**: API calls use the user's logged-in Canvas session. Same-origin `fetch` from the Canvas content script is guaranteed to work; whether calls from the popup/background also carry the session is verified in the **Phase 3 auth spike**. If they don't, Canvas syncs whenever the user visits Canvas (same model as Learning Suite).
+- **Auth**: API calls use the user's logged-in Canvas session.
+  - **Auth spike result (Phase 3, Oct 2026):** requests from the background service worker (`fetch` with `credentials: 'include'`, host permission on `*.instructure.com`) carry the Canvas session. Grades loaded from the popup with no Canvas tab open. The background is the primary sync path.
+  - The Canvas content script also syncs when the user visits a Canvas page and the data is stale. It stays as a fallback in case the session stops being sent to extension requests (for example, a change to Chrome's third-party cookie rules).
 - **Refresh**: on popup open if cached data is stale, plus a manual **"Sync Canvas Now"** button. No background alarms in v1.0.
 - **Session expiry**: a 401 response shows "Visit Canvas to reconnect".
 - **Pagination**: follow the `Link` header (`rel="next"`) on list endpoints.
@@ -185,7 +187,7 @@ Pure TypeScript functions with no side effects, independently testable.
 - `percentToLetter(percent, scale = BYU_DEFAULT_SCALE)` → letter grade
 - `resolveProjectedLetter(course, settings)` → course-level projection, else current letter, else `null`
 - `computeSemesterGPA(courses, settings)` → GPA over visible courses with a resolved letter
-- `computeCumulativeGPA(semesterGPA, semesterCredits, priorGPA, priorCredits)` → blended GPA
+- `computeCumulativeGPA(semester, prior)` → (prior grade points + semester grade points) ÷ (prior credits + semester credits). Prior grade points come from the transcript; a prior GPA × credits is the less exact fallback, since the GPA is rounded.
 
 **v1.1**
 - `computeWeightedGrade(groups, assignments, hypotheticals)` → projected course percentage

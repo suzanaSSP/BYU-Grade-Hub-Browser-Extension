@@ -70,7 +70,7 @@ Everything else is deferred to [Section 6 — Later](#6-later-deferred-features)
 | FR-21 | The extension must display the user's GPA based on current course grades (using the BYU 4.0 scale). |
 | FR-22 | The user must be able to input **credit hours** per course. |
 | FR-23 | The GPA display must show both **semester GPA** and **cumulative GPA**. |
-| FR-24 | The user must be able to input their **previous cumulative GPA and total credits earned** to enable a blended cumulative GPA calculation. |
+| FR-24 | The user must be able to input their **total grade points and GPA hours already completed** (from the transcript) to calculate the cumulative GPA. Entering a **previous cumulative GPA** instead of grade points is allowed as a less exact fallback. |
 
 ---
 

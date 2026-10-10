@@ -1,8 +1,9 @@
-import type { Course, CourseSettings } from '@/shared/types';
+import type { Course, CourseSettings, PriorGpa } from '@/shared/types';
 import { GPA_POINTS, resolveProjectedLetter } from './grades';
 
 export interface SemesterGpa {
   gpa: number | null; // null when no course counts toward the GPA
+  gradePoints: number; // sum of letter points × credit hours
   credits: number; // credit hours that counted
 }
 
@@ -15,7 +16,7 @@ export function computeSemesterGPA(
   courses: Course[],
   settings: Record<string, CourseSettings>
 ): SemesterGpa {
-  let points = 0;
+  let gradePoints = 0;
   let credits = 0;
 
   for (const course of courses) {
@@ -25,27 +26,27 @@ export function computeSemesterGPA(
     const letter = resolveProjectedLetter(course, courseSettings);
     if (letter === null) continue;
 
-    points += GPA_POINTS[letter] * courseSettings.creditHours;
+    gradePoints += GPA_POINTS[letter] * courseSettings.creditHours;
     credits += courseSettings.creditHours;
   }
 
-  return { gpa: credits > 0 ? points / credits : null, credits };
+  return { gpa: credits > 0 ? gradePoints / credits : null, gradePoints, credits };
+}
+
+/** Grade points earned before this semester, rebuilt from the GPA when that's all we have. */
+export function priorGradePoints(prior: PriorGpa): number {
+  return prior.kind === 'grade-points' ? prior.gradePoints : prior.gpa * prior.credits;
 }
 
 /**
- * Blends the semester GPA with the prior cumulative GPA, weighted by credits.
- * Falls back to whichever side has credits, or null if neither does.
+ * Cumulative GPA = (prior grade points + semester grade points) ÷ (prior credits +
+ * semester credits). Returns null when there are no credits on either side.
  */
-export function computeCumulativeGPA(
-  semesterGPA: number | null,
-  semesterCredits: number,
-  priorGPA: number | null,
-  priorCredits: number
-): number | null {
-  const semesterWeight = semesterGPA === null ? 0 : semesterCredits;
-  const priorWeight = priorGPA === null ? 0 : priorCredits;
-  const totalCredits = semesterWeight + priorWeight;
+export function computeCumulativeGPA(semester: SemesterGpa, prior: PriorGpa | null): number | null {
+  const priorCredits = prior && prior.credits > 0 ? prior.credits : 0;
+  const priorPoints = prior && priorCredits > 0 ? priorGradePoints(prior) : 0;
+  const totalCredits = semester.credits + priorCredits;
   if (totalCredits <= 0) return null;
 
-  return ((semesterGPA ?? 0) * semesterWeight + (priorGPA ?? 0) * priorWeight) / totalCredits;
+  return (semester.gradePoints + priorPoints) / totalCredits;
 }

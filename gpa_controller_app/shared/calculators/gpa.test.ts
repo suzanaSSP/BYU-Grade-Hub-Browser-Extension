@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import type { Course, CourseSettings, LetterGrade } from '@/shared/types';
-import { computeCumulativeGPA, computeSemesterGPA } from './gpa';
+import type { Course, CourseSettings, LetterGrade, PriorGpa } from '@/shared/types';
+import { computeCumulativeGPA, computeSemesterGPA, type SemesterGpa } from './gpa';
 
 function course(key: string, currentLetter: LetterGrade | null): Course {
   return { key, platform: 'canvas', name: key, currentPercent: null, currentLetter };
@@ -33,6 +33,7 @@ describe('computeSemesterGPA', () => {
       wrtg: settings(3),
     });
     expect(result.gpa).toBeCloseTo(2.8, 10);
+    expect(result.gradePoints).toBeCloseTo(42, 10);
     expect(result.credits).toBe(15);
   });
 
@@ -81,29 +82,50 @@ describe('computeSemesterGPA', () => {
   });
 
   it('returns a null GPA when nothing counts', () => {
-    expect(computeSemesterGPA([], {})).toEqual({ gpa: null, credits: 0 });
+    expect(computeSemesterGPA([], {})).toEqual({ gpa: null, gradePoints: 0, credits: 0 });
   });
 });
 
 describe('computeCumulativeGPA', () => {
-  it('blends semester and prior GPA by credits', () => {
-    // (2.8 × 15 + 3.5 × 45) / 60 = 199.5 / 60 = 3.325
-    expect(computeCumulativeGPA(2.8, 15, 3.5, 45)).toBeCloseTo(3.325, 10);
+  // 15 credits, 42.0 grade points → 2.8 (the hand-calculated semester above)
+  const semester: SemesterGpa = { gpa: 2.8, gradePoints: 42, credits: 15 };
+  const noSemester: SemesterGpa = { gpa: null, gradePoints: 0, credits: 0 };
+
+  it('adds prior grade points and credits to the semester', () => {
+    // (42 + 157.5) / (15 + 45) = 199.5 / 60 = 3.325
+    const prior: PriorGpa = { kind: 'grade-points', gradePoints: 157.5, credits: 45 };
+    expect(computeCumulativeGPA(semester, prior)).toBeCloseTo(3.325, 10);
+  });
+
+  it('rebuilds grade points from a prior GPA', () => {
+    // 3.5 × 45 = 157.5, same as above
+    const prior: PriorGpa = { kind: 'gpa', gpa: 3.5, credits: 45 };
+    expect(computeCumulativeGPA(semester, prior)).toBeCloseTo(3.325, 10);
+  });
+
+  it('is exact with grade points where a rounded GPA drifts', () => {
+    // Transcript: 211.49 grade points / 60 credits = 3.52483…, shown as 3.52
+    const exact: PriorGpa = { kind: 'grade-points', gradePoints: 211.49, credits: 60 };
+    const rounded: PriorGpa = { kind: 'gpa', gpa: 3.52, credits: 60 };
+    expect(computeCumulativeGPA(noSemester, exact)).toBeCloseTo(211.49 / 60, 10);
+    expect(computeCumulativeGPA(noSemester, rounded)).toBeCloseTo(3.52, 10);
   });
 
   it('equals the semester GPA when no prior GPA is entered', () => {
-    expect(computeCumulativeGPA(3.2, 15, null, 0)).toBe(3.2);
+    expect(computeCumulativeGPA(semester, null)).toBeCloseTo(2.8, 10);
   });
 
-  it('ignores a prior GPA with zero prior credits', () => {
-    expect(computeCumulativeGPA(3.2, 15, 3.9, 0)).toBe(3.2);
+  it('ignores prior grades with zero prior credits', () => {
+    const prior: PriorGpa = { kind: 'gpa', gpa: 3.9, credits: 0 };
+    expect(computeCumulativeGPA(semester, prior)).toBeCloseTo(2.8, 10);
   });
 
   it('equals the prior GPA when no semester course counts', () => {
-    expect(computeCumulativeGPA(null, 0, 3.5, 45)).toBe(3.5);
+    const prior: PriorGpa = { kind: 'gpa', gpa: 3.5, credits: 45 };
+    expect(computeCumulativeGPA(noSemester, prior)).toBeCloseTo(3.5, 10);
   });
 
   it('returns null when there is nothing to average', () => {
-    expect(computeCumulativeGPA(null, 0, null, 0)).toBeNull();
+    expect(computeCumulativeGPA(noSemester, null)).toBeNull();
   });
 });

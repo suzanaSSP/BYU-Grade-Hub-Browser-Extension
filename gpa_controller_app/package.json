@@ -16,7 +16,8 @@
     "format": "prettier --write .",
     "postinstall": "wxt prepare",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "try-gpa": "jiti playground/my-gpa.ts"
   },
   "dependencies": {
     "@tailwindcss/vite": "^4.3.3",

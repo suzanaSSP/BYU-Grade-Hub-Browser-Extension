@@ -27,3 +27,6 @@ web-ext.config.ts
 
 .venv
 
+
+# Personal grades for trying the calculators
+playground/
