@@ -1,6 +1,6 @@
 {
-  "name": "wxt-react-starter",
-  "description": "manifest.json description",
+  "name": "byu-grade-hub",
+  "description": "Course grades from Canvas and Learning Suite in one GPA planner",
   "private": true,
   "version": "0.0.0",
   "type": "module",
@@ -14,7 +14,9 @@
     "compile": "tsc --noEmit",
     "lint": "eslint .",
     "format": "prettier --write .",
-    "postinstall": "wxt prepare"
+    "postinstall": "wxt prepare",
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "dependencies": {
     "@tailwindcss/vite": "^4.3.3",

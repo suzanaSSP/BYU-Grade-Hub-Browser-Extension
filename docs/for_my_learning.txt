@@ -1,0 +1,8 @@
+entrypoints -> each folder is a page in my extension
+public -> icons
+shared -> Code used by many pages, my gpa calculators, storage, etc. 
+.output -> what I load in chrome to run the extension
+.wtxt -> files wxt generates
+
+wxt reads the folder and build the extension's manifest.json. This is a file that explains what the extension is, how it looks, the name, the files, what it's allowed to access, what it contains, etc.
+node_modules -> libraries that I use in the project, when I run npm install it runs them all. It's like requirements.txt

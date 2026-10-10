@@ -25,12 +25,12 @@ The plan is split into two releases (see `Requirements.md`):
 - [✅] Scaffold the extension using **WXT + React + TypeScript**
 - [✅] Configure **Tailwind CSS v4** with a custom design system (color tokens, typography, spacing)
 - [✅] Set up **ESLint + Prettier** (run on save via editor integration)
-- [ ] Configure **Vitest** for calculator unit tests
-- [ ] Configure the manifest (via `wxt.config.ts`) with minimum required permissions:
+- [✅] Configure **Vitest** for calculator unit tests
+- [✅] Configure the manifest (via `wxt.config.ts`) with minimum required permissions:
   - `storage`
   - Host permissions: `*://*.instructure.com/*`, `*://learningsuite.byu.edu/*`
-- [ ] Define the v1.0 **TypeScript interfaces** (`Course`, `LetterGrade`, `CourseSettings`, `GpaInputs`) — leave room for v1.1 types (`Assignment`, `AssignmentGroup`, `Hypotheticals`) without defining them yet
-- [ ] Stub out entry points: popup, Canvas content script, LS content script, background
+- [✅] Define the v1.0 **TypeScript interfaces** (`Course`, `LetterGrade`, `CourseSettings`, `GpaInputs`) — leave room for v1.1 types (`Assignment`, `AssignmentGroup`, `Hypotheticals`) without defining them yet
+- [✅] Stub out entry points: popup, Canvas content script, LS content script, background
 
 ### Deliverable
 A working "Hello World" extension that loads in Chrome with a blank popup.
@@ -48,12 +48,12 @@ A working "Hello World" extension that loads in Chrome with a blank popup.
 
 ### Tasks
 
-- [ ] Implement pure TypeScript functions in `shared/calculators/`:
+- [✅] Implement pure TypeScript functions in `shared/calculators/`:
   - `percentToLetter(percent, scale = BYU_DEFAULT_SCALE)` → letter grade
   - `resolveProjectedLetter(course, settings)` → course-level projection, else current letter, else `null` (v1.1 adds the assignment-level step in the middle)
   - `computeSemesterGPA(courses, settings)` → GPA over visible courses that have a resolved letter
   - `computeCumulativeGPA(semesterGPA, semesterCredits, priorGPA, priorCredits)` → blended GPA
-- [ ] Unit tests: rounding, courses with no grade (excluded), hidden courses (excluded), zero credits, no prior GPA entered, E grades
+- [✅] Unit tests: rounding, courses with no grade (excluded), hidden courses (excluded), zero credits, no prior GPA entered, E grades
 
 ### Success Criteria
 - All calculator tests pass

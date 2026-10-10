@@ -7,7 +7,7 @@ export default function App() {
           v1.0
         </span>
       </div>
-      <p className="text-sm text-slate-400">Tailwind CSS v4 is configured and working!</p>
+      <p className="text-sm text-slate-400">Tailwind CSS v4 is configured and working! Suzana's Extension :)</p>
     </div>
   );
 }

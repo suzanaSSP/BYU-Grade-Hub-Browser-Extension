@@ -8,7 +8,7 @@ export default defineConfig({
   }),
   manifest: {
     name: 'BYU Grade Hub',
-    permissions: ['storage', 'alarms', 'notifications', 'tabs'],
+    permissions: ['storage'],
     host_permissions: ['*://*.instructure.com/*', '*://learningsuite.byu.edu/*'],
   },
 });
