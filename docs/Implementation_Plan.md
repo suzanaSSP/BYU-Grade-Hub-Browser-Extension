@@ -88,11 +88,11 @@ A working "Hello World" extension that loads in Chrome with a blank popup.
 
 ### Tasks
 
-- [ ] Build the `ls.ts` content script on `learningsuite.byu.edu`
-- [ ] Scrape the course list and the current/final grade for each course (gradebook page only)
-- [ ] Put all CSS selectors in `scrapers/ls-selectors.ts`
-- [ ] Normalize into `Course` (`platform: 'learning-suite'`) and send to the background to store, with an LS `lastSyncedAt`
-- [ ] If expected elements are missing, keep the old data and show "Learning Suite data may be outdated"
+- [✅] Build the `ls.ts` content script on `learningsuite.byu.edu`
+- [✅] Scrape the course list and the current/final grade for each course (gradebook page only)
+- [✅] Put all CSS selectors in `scrapers/ls-selectors.ts`
+- [✅] Normalize into `Course` (`platform: 'learning-suite'`) and send to the background to store, with an LS `lastSyncedAt`
+- [✅] If expected elements are missing, keep the old data and show "Learning Suite data may be outdated"
 
 ### Success Criteria
 - LS courses appear alongside Canvas courses with correct current grades

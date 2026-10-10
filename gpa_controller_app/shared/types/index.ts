@@ -37,7 +37,9 @@ export interface GpaInputs {
   priorGpa: PriorGpa | null;
 }
 
-export type SyncError = 'logged-out' | 'failed';
+// logged-out: Canvas 401. failed: network or server error. page-changed: the LS page
+// no longer matches the scraper's selectors.
+export type SyncError = 'logged-out' | 'failed' | 'page-changed';
 
 /** Per-platform sync state. A failed sync keeps the last synced courses. */
 export interface SyncStatus {

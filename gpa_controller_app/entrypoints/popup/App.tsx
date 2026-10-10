@@ -2,13 +2,21 @@ import { useEffect, useState } from 'react';
 import { RefreshCw } from 'lucide-react';
 import { CANVAS_ORIGIN } from '@/shared/canvas/api';
 import { SYNC_CANVAS_MESSAGE, isStale } from '@/shared/canvas/sync';
-import { canvasCourses, canvasSyncStatus } from '@/shared/storage';
+import {
+  canvasCourses,
+  canvasSyncStatus,
+  learningSuiteCourses,
+  learningSuiteSyncStatus,
+} from '@/shared/storage';
 import { useStorageItem } from './useStorageItem';
 
-// Phase 3 view: Canvas courses and sync controls. Phase 5 replaces it with the GPA planner.
+// Phase 4 view: courses from both platforms and sync status. Phase 5 replaces it with the GPA planner.
 export default function App() {
-  const courses = useStorageItem(canvasCourses);
+  const canvas = useStorageItem(canvasCourses);
   const status = useStorageItem(canvasSyncStatus);
+  const learningSuite = useStorageItem(learningSuiteCourses);
+  const lsStatus = useStorageItem(learningSuiteSyncStatus);
+  const courses = canvas && learningSuite ? [...canvas, ...learningSuite] : undefined;
   const [syncing, setSyncing] = useState(false);
 
   async function sync() {
@@ -53,14 +61,22 @@ export default function App() {
           Couldn&apos;t reach Canvas. Showing saved grades.
         </p>
       )}
+      {lsStatus?.error === 'page-changed' && (
+        <p className="mb-3 text-sm text-amber-400">Learning Suite data may be outdated.</p>
+      )}
 
       {courses?.length === 0 ? (
-        <p className="text-sm text-slate-400">No current Canvas courses yet.</p>
+        <p className="text-sm text-slate-400">No current courses yet.</p>
       ) : (
         <ul className="space-y-2">
           {courses?.map((course) => (
             <li key={course.key} className="flex justify-between gap-3 text-sm">
-              <span className="truncate">{course.name}</span>
+              <span className="flex min-w-0 items-center gap-2">
+                <span className="shrink-0 rounded bg-slate-800 px-1.5 py-0.5 text-[10px] font-medium text-slate-300">
+                  {course.platform === 'canvas' ? 'Canvas' : 'LS'}
+                </span>
+                <span className="truncate">{course.name}</span>
+              </span>
               <span className="shrink-0 text-slate-300">
                 {course.currentLetter === null
                   ? 'No grade yet'
@@ -72,7 +88,8 @@ export default function App() {
       )}
 
       <p className="mt-3 border-t border-slate-800 pt-3 text-xs text-slate-500">
-        Canvas: {formatLastSynced(status?.lastSyncedAt ?? null)}
+        Canvas: {formatLastSynced(status?.lastSyncedAt ?? null)} · Learning Suite:{' '}
+        {formatLastSynced(lsStatus?.lastSyncedAt ?? null)}
       </p>
     </div>
   );
